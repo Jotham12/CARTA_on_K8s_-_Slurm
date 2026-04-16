@@ -68,8 +68,11 @@ const DEFAULT_JOB_TIMEOUT_MS = 120000;
 const DEFAULT_JOB_NAME_PREFIX = "carta-backend";
 const DEFAULT_FRONTEND_HEARTBEAT_TTL_MS = 120000;
 const FRONTEND_REAPER_INTERVAL_MS = 15000;
+const FRONTEND_WEBSOCKET_DISCONNECT_GRACE_MS = 5000;
 let frontendSessionReaperHandle;
 let frontendSessionReaperRunning = false;
+const frontendWebsocketCounts = new Map();
+const frontendWebsocketCancelTimers = new Map();
 function shellEscape(value) {
     return `'${value.replace(/'/g, `'\\''`)}'`;
 }
@@ -701,6 +704,44 @@ function startFrontendSessionReaper() {
     }, FRONTEND_REAPER_INTERVAL_MS);
     (_a = frontendSessionReaperHandle.unref) === null || _a === void 0 ? void 0 : _a.call(frontendSessionReaperHandle);
 }
+function registerFrontendWebsocket(username, session) {
+    const existingTimer = frontendWebsocketCancelTimers.get(username);
+    if (existingTimer) {
+        clearTimeout(existingTimer);
+        frontendWebsocketCancelTimers.delete(username);
+    }
+    frontendWebsocketCounts.set(username, (frontendWebsocketCounts.get(username) || 0) + 1);
+    let closed = false;
+    return () => {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        const remainingConnections = Math.max((frontendWebsocketCounts.get(username) || 1) - 1, 0);
+        if (remainingConnections > 0) {
+            frontendWebsocketCounts.set(username, remainingConnections);
+            return;
+        }
+        frontendWebsocketCounts.delete(username);
+        const cancelTimer = setTimeout(() => __awaiter(this, void 0, void 0, function* () {
+            frontendWebsocketCancelTimers.delete(username);
+            if ((frontendWebsocketCounts.get(username) || 0) > 0) {
+                return;
+            }
+            util_2.logger.info(`Frontend websocket closed for ${username}; cancelling Slurm job ${session.jobId}`);
+            try {
+                yield cancelBackendSession(username, session);
+            }
+            catch (error) {
+                util_2.logger.error(`Failed to cancel Slurm job after websocket close for ${username}: ${getErrorMessage(error)}`);
+            }
+        }), FRONTEND_WEBSOCKET_DISCONNECT_GRACE_MS);
+        frontendWebsocketCancelTimers.set(username, cancelTimer);
+        if (typeof cancelTimer.unref === "function") {
+            cancelTimer.unref();
+        }
+    };
+}
 const createUpgradeHandler = (server) => (req, socket, head) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
     try {
@@ -736,6 +777,10 @@ const createUpgradeHandler = (server) => (req, socket, head) => __awaiter(void 0
         }
         req.headers["carta-auth-token"] = session.authToken;
         req.url = "/";
+        const unregisterFrontendWebsocket = registerFrontendWebsocket(username, session);
+        socket.once("close", unregisterFrontendWebsocket);
+        socket.once("end", unregisterFrontendWebsocket);
+        socket.once("error", unregisterFrontendWebsocket);
         return server.ws(req, socket, head, { target: { host: session.node, port: session.port } });
     }
     catch (error) {
