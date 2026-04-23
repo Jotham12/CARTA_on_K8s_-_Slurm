@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: cephfs-images-pvc
-  namespace: carta
+  name: cephfs-pvc
+  namespace: YOUR-NAMESPACE
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: microk8s-hostpath
   resources:
     requests:
-      storage: 1Gi
+      storage: 5Gi
+  storageClassName: cephfs-csi
