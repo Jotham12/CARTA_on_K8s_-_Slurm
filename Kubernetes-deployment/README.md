@@ -1,7 +1,7 @@
 CARTA Deployed on Kubernetes
 
 
-The scripts will be categorised into three:
+There are two directories under this Kubernetes deployment: carta-controller contains the main code then the scripts folder is organised into three folders: Infrastructure-layer,Application-layer and Operational-layer 
 
 
 1.Infrastructure Layer
@@ -21,8 +21,7 @@ Scripts and files in this layer
 - setup-kubeadm.sh — prepares the control-plane and worker nodes for Kubernetes
 - setup-cephfs-csi.sh — deploys the Ceph-CSI CephFS driver
 - cephfs-storageclass.yaml — defines the CephFS StorageClass
-- cephfs-pvc.yaml — creates the shared PersistentVolumeClaim
-- namespace.yaml — creates the carta namespace
+- cephfs-pvc.yaml — creates the shared PersistentVolumeClaim && create carta namespace
 
 
 Outcome
@@ -39,17 +38,15 @@ deploy the CARTA controller into the carta namespace
 provide controller configuration through Secret and ConfigMap
 mount supporting files such as nsswitch.conf, host keys, and extrausers
 define RBAC resources for backend pod management
-build and use the modified controller image
-configure backend startup to open user-specific directories
 
 Scripts and files in this layer
 
-deploy-carta-controller.sh — applies the controller deployment resources
-controller-secret.yaml — stores config.json
-controller-configmap.yaml — stores backend runtime parameters
-controller-deployment.yaml — deploys the CARTA controller
-rbac.yaml — creates the service account, role, and role binding
-Dockerfile — builds the modified CARTA controller image
+- kubectl create secret generic carta-config --from-file=config.json This basically contains a copy of the carta config directory in k8s secret form (expected to be named carta-config) 
+- mongodb-community.yaml deploys MongoDB to keep state information 
+- kubectl create secret generic carta-extrausers --from-file=extrausers creates secret for extra-users 
+- carta-controller.yaml — deploys the CARTA controller :include service, rbac, role-binding, role
+ 
+
 
 Outcome
 After completing this layer, the CARTA controller is deployed and able to create and manage backend sessions for authenticated users.
@@ -70,11 +67,11 @@ verify that the platform is functioning correctly
 
 Scripts and files in this layer
 
-create-user-directories.sh — creates user directories on CephFS
-set-directory-permissions.sh — applies ownership and chmod 700
-ingress.yaml — exposes the CARTA controller externally
-metallb-config.yaml — provides load-balanced access where required
-validate-deployment.sh — checks pod status, storage mounts, and service availability
+- create-user-directories.sh — creates user directories on CephFS
+- set-directory-permissions.sh — applies ownership and chmod 700
+- ingress.yaml — exposes the CARTA controller externally
+- metallb-config.yaml — provides load-balanced access where required
+
 
 Outcome
 After completing this layer, users can authenticate, access only their own directories, and use CARTA through the deployed entry point.
