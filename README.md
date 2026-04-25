@@ -92,8 +92,5 @@ carta-deployment-comparison/
 ├── hpc-deployment/
 │   └── README.md
 │
-├── local-deployment/
-│
 ├── architecture-diagram.png
-├── calico-installation-recovery.yaml
 └── README.md
