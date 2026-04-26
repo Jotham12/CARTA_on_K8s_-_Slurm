@@ -31,7 +31,7 @@ The HPC deployment uses Slurm as the resource manager. In this setup, the CARTA 
 
 The diagram below shows the CARTA components that this repository aims to combine across the two deployment approaches.
 
-![Architecture Diagram](architecture-diagram.png)
+![Architecture Diagram](diagram1.png)
 
 Users access CARTA through a browser. Requests are routed through DNS and NGINX to the CARTA controller. The controller provides the dashboard, serves the frontend, handles server-side logic, and communicates with MongoDB for persistent state.
 
